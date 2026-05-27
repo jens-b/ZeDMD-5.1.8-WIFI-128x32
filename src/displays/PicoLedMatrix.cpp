@@ -51,10 +51,10 @@ PicoLedMatrix::PicoLedMatrix() {
   s_hub75 = new pimoroni::Hub75(
       TOTAL_WIDTH, PANEL_HEIGHT, nullptr,
 #ifdef HUB75_CLK2
-      pimoroni::ShiftDriver::SHIFT_DRIVER_DP3246,
-      pimoroni::LineDecoder::LINE_DECODER_TYPE595,
+      pimoroni::ShiftDriver::SHIFT_DRIVER_FM6124,
+      pimoroni::LineDecoder::LINE_DECODER_SM5368P,
 #else
-      pimoroni::ShiftDriver::SHIFT_DRIVER_FM6126A,
+      pimoroni::ShiftDriver::SHIFT_DRIVER_SHIFTREG,
       pimoroni::LineDecoder::LINE_DECODER_TYPE138,
 #endif
       false, static_cast<pimoroni::Hub75::COLOR_ORDER>(color_order[rgbMode]),
