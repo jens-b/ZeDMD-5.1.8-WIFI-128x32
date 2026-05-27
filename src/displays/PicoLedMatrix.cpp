@@ -54,7 +54,7 @@ PicoLedMatrix::PicoLedMatrix() {
       pimoroni::ShiftDriver::SHIFT_DRIVER_FM6124,
       pimoroni::LineDecoder::LINE_DECODER_SM5368P,
 #else
-      pimoroni::ShiftDriver::SHIFT_DRIVER_SHIFTREG,
+      pimoroni::ShiftDriver::SHIFT_DRIVER_FM6126A,
       pimoroni::LineDecoder::LINE_DECODER_TYPE138,
 #endif
       false, static_cast<pimoroni::Hub75::COLOR_ORDER>(color_order[rgbMode]),
