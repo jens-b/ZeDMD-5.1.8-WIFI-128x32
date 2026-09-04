@@ -479,6 +479,10 @@
                                 <span id="ss-file-list-arrow" style="color:#fff; font-size:1.1em;">▶&#xFE0E;</span>
                             </div>
                             <div id="ss-file-list-panel" class="collapsible-panel" style="display:none;">
+                                <div style="display:flex; gap:6px; margin-bottom:8px; align-items:center;">
+                                    <input type="text" id="ss-search-input" placeholder="Search GIF name…" style="flex:1; padding:5px 8px; margin:0; font-size:0.85em;" oninput="ssSearchChanged(this.value)">
+                                    <button id="ss-search-clear" onclick="ssClearSearch()" style="width:auto; padding:5px 10px; margin:0; background:#555; display:none;" title="Clear search">&#10005;</button>
+                                </div>
                                 <div id="ss-pagination-top" style="display:none; gap:8px; align-items:center; margin-bottom:6px;">
                                     <button id="ss-prev-btn-top" style="width:auto; padding:5px 12px; margin:0;" onclick="sdFilePage(-1)">&#9664; Back</button>
                                     <span id="ss-page-info-top" style="flex:1; text-align:center; font-size:0.85em; color:#aaa;"></span>
@@ -626,10 +630,10 @@
                         <label for="screensaver-mode">Display Mode:</label>
                         <select id="screensaver-mode" onchange="saveScreensaverMode()">
                             <option value="0">Screensaver only</option>
-                            <option value="1">Clock only</option>
-                            <option value="2">Clock + Screensaver</option>
-                            <option value="3">Clock + Weather</option>
-                            <option value="4">Clock + Weather + Screensaver</option>
+                            <option value="1">Clock + Weather</option>
+                            <option value="2">Clock + Weather + Screensaver</option>
+                            <option value="3">Clock + Weather + Forecast</option>
+                            <option value="4">Clock + Weather + Forecast + Screensaver</option>
                             <option value="5">Text Screensaver</option>
                             <option value="6">Clock + Text</option>
                         </select>
@@ -722,14 +726,12 @@
                         <span>&#128266;</span>
                         <span id="radio-vol-val" style="min-width:30px; text-align:right; font-size:0.85em; color:#aaa; margin-left:4px;">15</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <div id="speaker-channel-row" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                         <span style="font-size:0.75em; color:#aaa; min-width:46px;">Channel</span>
                         <button id="btn-stereo" onclick="setRadioMono(false)"
                             style="width:auto; padding:5px 12px; margin:0; background:#27ae60;">Stereo</button>
                         <button id="btn-mono" onclick="setRadioMono(true)"
                             style="width:auto; padding:5px 12px; margin:0; background:#555;">Mono</button>
-                        <button id="btn-swap" onclick="toggleRadioSwap()"
-                            style="width:auto; padding:5px 12px; margin:0; background:#555;">L/R Swap</button>
                     </div>
                     <div style="margin-bottom:10px; padding:6px 8px; background:#1e1e1e; border-radius:6px; border:1px solid #333;">
                         <div style="font-size:0.75em; color:#888; margin-bottom:4px;">EQ</div>
@@ -1730,6 +1732,10 @@
                         var btn = document.getElementById('seg-btn-' + config.clockSegStyle);
                         if (btn) btn.classList.add('active');
                     }
+                    if (config.speakerCount === 1) {
+                        var row = document.getElementById('speaker-channel-row');
+                        if (row) row.style.display = 'none';
+                    }
                 }
             };
             xhr.send();
@@ -2124,21 +2130,6 @@
                 fetch('/radio_mono', { method: 'POST', body: fd })
                     .catch(function(e) { console.warn('ZeDMD radio_mono:', e); });
             }
-        }
-
-        function setRadioSwap(swap, skipSend) {
-            var btn = document.getElementById('btn-swap');
-            if (btn) { btn.style.background = swap ? '#e67e22' : '#555'; btn.dataset.active = swap ? '1' : '0'; }
-            if (!skipSend) {
-                var fd = new FormData(); fd.append('swap', swap ? '1' : '0');
-                fetch('/radio_swap', { method: 'POST', body: fd })
-                    .catch(function(e) { console.warn('ZeDMD radio_swap:', e); });
-            }
-        }
-
-        function toggleRadioSwap() {
-            var btn = document.getElementById('btn-swap');
-            setRadioSwap(!(btn && btn.dataset.active === '1'));
         }
 
         function updateDisplayBtn(active) {
@@ -2569,6 +2560,26 @@
         var sdFileTotal = 0;
         var sdFilePageSize = 20;
         var ssPollRunning = false;
+        var sdSearchTerm = '';
+        var ssSearchTimer = null;
+
+        function ssSearchChanged(val) {
+            clearTimeout(ssSearchTimer);
+            ssSearchTimer = setTimeout(function() {
+                sdSearchTerm = val.trim();
+                document.getElementById('ss-search-clear').style.display = sdSearchTerm ? 'inline-block' : 'none';
+                sdFileOffset = 0;
+                loadSDScreensaverFiles();
+            }, 300);
+        }
+
+        function ssClearSearch() {
+            document.getElementById('ss-search-input').value = '';
+            document.getElementById('ss-search-clear').style.display = 'none';
+            sdSearchTerm = '';
+            sdFileOffset = 0;
+            loadSDScreensaverFiles();
+        }
 
         function sdFilePage(dir) {
             var newOffset = sdFileOffset + dir * sdFilePageSize;
@@ -2586,6 +2597,7 @@
         function loadSDScreensaverFiles() {
             var xhr = new XMLHttpRequest();
             var url = "/screensaver_files?offset=" + sdFileOffset;
+            if (sdSearchTerm) url += "&search=" + encodeURIComponent(sdSearchTerm);
             xhr.open("GET", url, true);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
@@ -2593,7 +2605,9 @@
                     var list = document.getElementById('sd-screensaver-file-list');
                     list.innerHTML = "";
                     if (files.length === 0) {
-                        list.innerHTML = "<li><span>No files in selected folder.</span></li>";
+                        list.innerHTML = sdSearchTerm
+                            ? "<li><span>No files matching &ldquo;" + sdSearchTerm.replace(/&/g,'&amp;').replace(/</g,'&lt;') + "&rdquo;.</span></li>"
+                            : "<li><span>No files in selected folder.</span></li>";
                     } else {
                         // Cache verwenden statt bei jedem Refresh neu laden
                         var favLines = cachedFavLines;
@@ -2722,13 +2736,16 @@
                     }
                     // Gesamtzahl abrufen und Pagination aktualisieren
                     var xhr2 = new XMLHttpRequest();
-                    xhr2.open("GET", "/screensaver_folder_count", true);
+                    var countUrl = "/screensaver_folder_count";
+                    if (sdSearchTerm) countUrl += "?search=" + encodeURIComponent(sdSearchTerm);
+                    xhr2.open("GET", countUrl, true);
                     xhr2.onreadystatechange = function() {
                         if (xhr2.readyState === XMLHttpRequest.DONE && xhr2.status === 200) {
                             var info = JSON.parse(xhr2.responseText);
                             sdFileTotal = info.total;
                             var countEl = document.getElementById('screensaver-file-count');
-                            countEl.textContent = info.scanning ? ' (scanning…)' : '(' + info.total + ')';
+                            countEl.textContent = info.scanning ? ' (scanning…)'
+                                : sdSearchTerm ? ' (' + info.total + ' found)' : '(' + info.total + ')';
                             if (info.scanning && !ssPollRunning) {
                                 var cancelBtn = document.getElementById('cancel-scan-btn');
                                 if (cancelBtn) cancelBtn.style.display = 'inline-block';
@@ -2856,7 +2873,6 @@
                     if (d.volume !== undefined) setRadioVolume(d.volume, true);
                     if (d.eqBass !== undefined && !_eqSaveTimer) loadRadioEq(d.eqBass, d.eqMid, d.eqTreble);
                     if (d.mono !== undefined) setRadioMono(d.mono, true);
-                    if (d.swapChannels !== undefined) setRadioSwap(d.swapChannels, true);
                     if (d.displayActive !== undefined) {
                         _radioDisplayActive = d.displayActive;
                         updateDisplayBtn(_radioDisplayActive);

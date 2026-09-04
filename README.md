@@ -2,12 +2,13 @@
 
 > 🇩🇪 **Deutschsprachige Anleitung:** [LIESMICH.md](LIESMICH.md)
 
-**The Arcade** is an ESP32-S3 firmware for a 128×32 HUB75 LED matrix. It turns a pinball DMD panel into a standalone smart display with:
+**The Arcade** is an ESP32-S3 firmware for a 128×32 HUB75 LED matrix — a multifunctional smart display for clock, weather, GIFs, and internet radio. It has nothing to do with pinball.
 
 - **Clock + weather** — live data from your own weather station via MQTT (WeeWx), with Open-Meteo as automatic fallback; configurable field names, visual fallback indicator
 - **GIF screensaver** — animated GIFs from SD card, sorted alphabetically or shuffled, with optional synchronised MP3 audio per GIF
 - **Webradio** — internet radio via I2S amplifier (MAX98357A); station logos, track title, equaliser, L/R swap
 - **Web UI** — full configuration and control from any browser on your local network; no app, no account, no cloud
+- **Batocera/Recalbox streaming** — receives animated game marquees via the ZeDMD protocol when a retro gaming frontend is running; the display switches automatically and returns to its normal mode afterwards
 
 ---
 
@@ -43,7 +44,7 @@
 
 ---
 
-https://github.com/jens-b/ZeDMD-5.1.8-WIFI-128x32/raw/main/docs/images/ZeDMD_WiFi_128x32_demo.mp4
+https://github.com/jens-b/The-Arcade/raw/main/docs/images/ZeDMD_WiFi_128x32_demo.mp4
 
 ---
 
@@ -67,7 +68,32 @@ https://github.com/jens-b/ZeDMD-5.1.8-WIFI-128x32/raw/main/docs/images/ZeDMD_WiF
 
 ## 🆕 What's new in this release
 
-### v1.7.0 *(this release)*
+### v1.8.0 *(this release)*
+
+#### Clock digit drop animation
+When a minute changes, each affected digit now animates: the old digit slides out downward while the new one drops in from above. Five frames at 40 ms each give a smooth 200 ms transition without impacting the normal display refresh rate.
+
+#### Modes 1 and 2 — clock + weather combined
+Modes 1 and 2 previously showed the clock alone. They now display the **clock and weather side by side** in the same layout as mode 3/4, removing the need for a separate weather-only mode slot and giving all time-based modes access to live weather data.
+
+#### Webradio — automatic stream fallback
+If a station stream is consistently slow (below the bitrate threshold for multiple consecutive checks), the firmware automatically searches [radio-browser.info](https://www.radio-browser.info) for an alternative URL for the same station and switches to it silently. The display shows the station name as before. A manual fallback can also be triggered via the radio page.
+
+#### GIF screensaver — search by name
+The screensaver file list now supports **live search by filename**. Type any substring into the search box and the list filters instantly on the backend — no page reload needed. Works across the full SD card library, even with thousands of files.
+
+#### Configurable OpenMeteo timezone
+The timezone used for the Open-Meteo weather API is now configurable in the admin panel (IANA format, e.g. `Europe/Berlin`). Previously hardcoded. The setting is saved to LittleFS and survives reboots. Only relevant if your coordinates are outside Central European time.
+
+#### HTTPS radio streams
+The mbedTLS SSL buffer has been moved to PSRAM, making HTTPS radio streams reliable. Previously, the SSL handshake frequently failed under memory pressure. Encrypted streams (`https://`) now work as well as plain HTTP.
+
+#### GIF PSRAM pre-load + 50 fps minimum
+GIF frames are now pre-loaded into PSRAM before rendering begins, eliminating mid-playback SD card stalls. A minimum floor of 50 fps is enforced — files with missing or zero frame-delay metadata now play at a sensible speed instead of running as fast as the CPU allows.
+
+---
+
+### v1.7.0
 
 #### Critical stability fixes — watchdog now actively monitors the main task
 A fundamental issue was present since the first WiFi firmware build: `enableLoopWDT()` was never called, meaning the Task Watchdog Timer (TWDT) never actually monitored the main loop task. All `esp_task_wdt_reset()` calls across the codebase were silent no-ops — the device relied only on the secondary IDLE-task starvation mechanism to detect hangs.
@@ -392,7 +418,7 @@ The ESP32-audioI2S library outputs stereo I2S natively when playing stereo sourc
 
 ---
 
-## 🔜 Planned Features
+## Hardware
 
 ### Custom PCB by [elabree](https://github.com/elabree) ✅
 A dedicated carrier board designed and built by [elabree](https://github.com/elabree) — tested and confirmed working with this firmware. The board hosts the ESP32-S3-DevKitC-1-N16R8, an SD card module socket, and two MAX98357A stereo amplifier sockets on a single clean PCB.
@@ -401,9 +427,13 @@ Two revisions are available:
 - **Rev1.1** — for original Espressif ESP32-S3-DevKitC (0.9″ pin row spacing)
 - **Rev1.2** — for most clone boards (1″ pin row spacing)
 
-KiCad sources and Gerber files for ordering at JLCPCB: [KiCad/ZeDMD_WiFi/](https://github.com/jens-b/ZeDMD-5.1.8-WIFI-128x32/tree/main/KiCad/ZeDMD_WiFi) (included in this repository).
+KiCad sources and Gerber files for ordering at JLCPCB: [KiCad/ZeDMD_WiFi/](https://github.com/jens-b/The-Arcade/tree/main/KiCad/ZeDMD_WiFi) (included in this repository).
 
 A big thank-you to elabree for designing and contributing this board to the project — this would not have happened without his work.
+
+---
+
+## 🔜 Planned Features
 
 ### Code cleanup *(on my list)*
 The code has grown organically and is honestly a bit messy in places — I know. I'm planning to clean things up at some point, but no promises on when. It works, which counts for something.
@@ -682,7 +712,7 @@ Browser → **`http://<IP>/admin.html`** → "Firmware Update (OTA)"
 ## Credits
 
 - **[Markus Kalkbrenner / PPUC](https://github.com/PPUC/ZeDMD)** — original ZeDMD project
-- **[elabree](https://github.com/elabree)** — PCB design: carrier board for DevKit + SD + MAX98357A ([KiCad files](https://github.com/jens-b/ZeDMD-5.1.8-WIFI-128x32/tree/main/KiCad))
+- **[elabree](https://github.com/elabree)** — PCB design: carrier board for DevKit + SD + MAX98357A ([KiCad files](https://github.com/jens-b/The-Arcade/tree/main/KiCad))
 - **Niels (My Son)** — coding assistance & inspiration & moral support
 - **[Claude Sonnet](https://anthropic.com)** — coding assistance
 
